@@ -6,11 +6,13 @@ class Word
   attr_accessor :word_str
   attr_accessor :squares
   attr_accessor :score
+  attr_reader :orientation
 
-  def initialize(word_str)
+  def initialize(word_str, tileset, orientation)
+    @orientation = orientation
     @word_str = word_str
     @squares = []
-    @points_map = Tileset.new.points_map
+    @points_map = tileset.points_map
   end
 
   def score_word
@@ -29,6 +31,7 @@ class Word
       else
         score += @points_map[square.letter.to_sym]
       end
+      square.scored = true
     end
     @score = score * multiple
   end
@@ -37,9 +40,17 @@ end
 
 class Square
 
+  attr_reader :x
+  attr_reader :y
+
   attr_accessor :bonus
   attr_accessor :letter
   attr_accessor :scored
+
+  def initialize(x, y)
+    @x = x
+    @y = y
+  end
 
   def presentation
     if @letter
@@ -63,11 +74,13 @@ class Board
   attr_reader :board
   attr_reader :tileset
   attr_accessor :words
+  attr_reader :score
 
   def initialize
     @tileset = Tileset.new
     @words = []
-    @board = (0..14).map { |_| (0..14).map { |_| Square.new } }
+    @score = 0
+    @board = (0..14).map { |x| (0..14).map { |y| Square.new(x, y) } }
     triple_words = [[0,0], [0,7], [0,14], [7,0], [14,0], [7,14], [14,7], [14,14]]
     triple_words.each { |pos| board[pos[0]][pos[1]].bonus = :triple_word }
     double_words = [[1,1], [2,2], [3,3], [4,4], [7,7],
@@ -88,31 +101,73 @@ class Board
     double_letters.each { |pos| board[pos[0]][pos[1]].bonus = :double_letter }
   end
 
-  def play(x, y, direction, word_str)
-    word = Word.new(word_str)
+  def word_valid?(word_str)
+    available = @tileset.tileset.dup
+    word_str.split("").each do |letter|
+      available[letter.capitalize.to_sym] -= 1
+    end
+    if available.values.sort.first < 0 || word_str.length > 7 || word_str.length == 1
+      false
+    else
+      true
+    end
+  end
+
+  def play(direction, word_str, x = 7, y = 7)
+    if @words.length > 0
+      last_word = @words.last.word_str
+    else
+      last_word = ""
+    end
+    if last_word != "" && !last_word.include?(word_str[0])
+      return
+    end
+    return if !word_valid?(word_str)
+    if last_word != ""
+      starting = @words.last.squares.detect {|square| square.letter == word_str[0].capitalize}
+      x = starting.x
+      y = starting.y
+      if @words.last.orientation == :down
+        direction = :right
+        if word_str.length-1+y > 14
+          return
+        end
+      else
+        direction = :down
+        if word_str.length-1+x > 14
+          return
+        end
+      end
+    end
+    word = Word.new(word_str, @tileset, direction)
+    puts word_str
     if direction == :down
       word_str.split("").each_with_index do |letter, i|
         square = @board[x+i][y]
         square.letter = letter.capitalize
-        square.scored = true
+        @tileset.tileset[square.letter.to_sym] -= 1
         word.squares << square
       end
     elsif direction == :right
       word_str.split("").each_with_index do |letter, i|
         square = @board[x][y+i]
         square.letter = letter.capitalize
-        square.scored = true
+        @tileset.tileset[square.letter.to_sym] -= 1
         word.squares << square
       end
     end
     @words << word
     print_board
+    puts @tileset.tileset
     score_words
   end
 
   def score_words
-    words.select {|word| word.score.nil?}
-    binding.pry
+    unscored = words.select {|word| word.score.nil?}
+    unscored.each do |word|
+      @score += word.score_word
+    end
+    puts @score
   end
 
   def print_board

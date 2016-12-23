@@ -12,6 +12,7 @@ end
 class Tileset
 
   attr_reader :points_map
+  attr_accessor :tileset
 
   def initialize
     @points_map = {
@@ -73,23 +74,6 @@ class Tileset
       Z: 1
     }
 
-  end
-
-  def score_word(word)
-    sum = 0
-    word.split("").each do |letter|
-      sum += points_for_letter(letter)
-      @tileset[letter.to_sym] -= 1
-    end
-    sum
-  end
-
-  def tile_count(letter)
-    @tileset[letter]
-  end
-
-  def points_for_letter(letter)
-    @points_map[letter.to_sym]
   end
 
 end
