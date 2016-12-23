@@ -1,9 +1,45 @@
 require 'pry'
+require 'tiles'
+
+class Word
+
+  attr_accessor :word_str
+  attr_accessor :squares
+  attr_accessor :score
+
+  def initialize(word_str)
+    @word_str = word_str
+    @squares = []
+    @points_map = Tileset.new.points_map
+  end
+
+  def score_word
+    multiple = 1
+    score = 0
+    @squares.each do |square|
+      if square.bonus == :triple_word
+        multiple *= 3
+      elsif square.bonus == :double_word
+        multiple *= 2
+      end
+      if square.bonus == :triple_letter
+        score += @points_map[square.letter.to_sym] * 3
+      elsif square.bonus == :double_letter
+        score += @points_map[square.letter.to_sym] * 2
+      else
+        score += @points_map[square.letter.to_sym]
+      end
+    end
+    @score = score * multiple
+  end
+
+end
 
 class Square
 
   attr_accessor :bonus
   attr_accessor :letter
+  attr_accessor :scored
 
   def presentation
     if @letter
@@ -25,8 +61,12 @@ end
 class Board
 
   attr_reader :board
+  attr_reader :tileset
+  attr_accessor :words
 
   def initialize
+    @tileset = Tileset.new
+    @words = []
     @board = (0..14).map { |_| (0..14).map { |_| Square.new } }
     triple_words = [[0,0], [0,7], [0,14], [7,0], [14,0], [7,14], [14,7], [14,14]]
     triple_words.each { |pos| board[pos[0]][pos[1]].bonus = :triple_word }
@@ -48,17 +88,31 @@ class Board
     double_letters.each { |pos| board[pos[0]][pos[1]].bonus = :double_letter }
   end
 
-  def play(x, y, direction, word)
+  def play(x, y, direction, word_str)
+    word = Word.new(word_str)
     if direction == :down
-      word.split("").each_with_index do |letter, i|
-        @board[x][y+i].letter = letter
+      word_str.split("").each_with_index do |letter, i|
+        square = @board[x+i][y]
+        square.letter = letter.capitalize
+        square.scored = true
+        word.squares << square
       end
     elsif direction == :right
-      word.split("").each_with_index do |letter, i|
-        @board[x+i][y].letter = letter
+      word_str.split("").each_with_index do |letter, i|
+        square = @board[x][y+i]
+        square.letter = letter.capitalize
+        square.scored = true
+        word.squares << square
       end
     end
-    print_board 
+    @words << word
+    print_board
+    score_words
+  end
+
+  def score_words
+    words.select {|word| word.score.nil?}
+    binding.pry
   end
 
   def print_board
